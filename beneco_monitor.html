@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BENECO Power Interruption Monitor — PSHS-CAR</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 20px 24px 32px;
+    max-width: 900px;
+  }
+
+  /* ── Header ──────────────────────────────────────────── */
+  .title {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #555;
+    margin-bottom: 2px;
+  }
+  .subtitle {
+    font-size: 16px;
+    color: #999;
+    margin-bottom: 16px;
+  }
+
+  /* ── Status line ─────────────────────────────────────── */
+  .status-line {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-line button {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    font-family: inherit;
+  }
+  .status-line button:hover { color: #333; }
+  .status-line button:disabled { color: #ccc; cursor: not-allowed; }
+
+  /* ── Week section ────────────────────────────────────── */
+  .week-section {
+    margin-bottom: 28px;
+  }
+
+  .week-label {
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #aaa;
+    margin-bottom: 10px;
+  }
+
+  .week-content {
+    border-left: 3px solid #ddd;
+    padding-left: 14px;
+  }
+  .week-content.alert   { border-left-color: #c00; }
+  .week-content.clear   { border-left-color: #ccc; }
+  .week-content.pending { border-left-color: #ccc; }
+
+  /* ── Status message (clear / pending) ───────────────── */
+  .status-msg {
+    font-size: 13px;
+    color: #777;
+  }
+  .status-msg .period { color: #aaa; font-size: 12px; margin-top: 1px; }
+
+  /* ── Interruption entries ────────────────────────────── */
+  .entry {
+    margin-bottom: 18px;
+  }
+  .entry:last-child { margin-bottom: 0; }
+
+  .entry-date {
+    font-size: 16px;
+    font-weight: 700;
+    color: #c00;
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+
+  .entry-body {
+    padding-left: 16px;
+  }
+
+  .entry-time    { font-size: 13px; color: #444; margin-bottom: 3px; }
+  .entry-areas   { font-size: 13px; color: #222; margin-bottom: 3px; }
+  .entry-purpose { font-size: 12px; color: #888; font-style: italic; }
+
+  .kw-match {
+    background: #fff0f0;
+    color: #c00;
+    border-radius: 2px;
+    padding: 0 2px;
+    font-weight: 600;
+  }
+
+  /* ── Footer notes ────────────────────────────────────── */
+  .source-note {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #ccc;
+  }
+  .source-note a { color: #bbb; }
+  .source-note a:hover { color: #555; }
+
+  .license-note {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #ccc;
+  }
+  .license-note a { color: #bbb; }
+  .license-note a:hover { color: #555; }
+
+  .loading   { color: #aaa; font-size: 13px; }
+  .error-msg { color: #c00; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!--
+MIT License
+
+Copyright (c) 2026 Ricarido Saturay, Jr.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed with AI assistance (Claude by Anthropic).
+-->
+
+<div class="title">BENECO Power Interruption Monitor</div>
+<div class="subtitle">PSHS-CAR Campus · Irisan, Baguio City</div>
+
+<div class="status-line">
+  <span id="status-text">Checking…</span>
+  <button id="btn-refresh" onclick="fetchData()" disabled>refresh</button>
+</div>
+
+<div id="result-area">
+  <div class="loading">Loading interruption data…</div>
+</div>
+
+<div class="source-note" id="source-note"></div>
+<div class="license-note">
+  <a href="https://github.com/ricsatjr/beneco-outage-monitor" target="_blank" rel="noopener">GitHub</a>
+  &middot; Open source &middot; <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
+  &middot; Copyright &copy; 2026 Ricarido Saturay, Jr.
+  &middot; Developed with AI assistance (Claude by Anthropic)
+</div>
+
+<script>
+/* ── Config ──────────────────────────────────────────────────── */
+const KEYWORDS = ['irisan', 'purok 12', 'philippine science', 'pshs'];
+
+const API_URL = 'https://baguiocityguide.com/wp-json/wp/v2/posts'
+  + '?search=beneco+power+interruption'
+  + '&per_page=5'
+  + '&orderby=date&order=desc'
+  + '&_fields=id,date,title,link,content';
+
+const REFRESH_MS = 3 * 60 * 60 * 1000;  // every 3 hours
+
+/* ── Helpers ─────────────────────────────────────────────────── */
+function stripHtml(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent || '';
+}
+
+function matchKw(text) {
+  const lo = text.toLowerCase();
+  return KEYWORDS.filter(k => lo.includes(k));
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightKw(text, hits) {
+  if (!hits.length) return escHtml(text);
+  const pat = hits.map(m => m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+  return escHtml(text).replace(new RegExp(`(${pat})`, 'gi'),
+    '<span class="kw-match">$1</span>');
+}
+
+/* ── Week boundaries ─────────────────────────────────────────── */
+function weekBounds(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMon = (day === 0) ? -6 : 1 - day;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + diffToMon + offset * 7);
+  mon.setHours(0, 0, 0, 0);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  sun.setHours(23, 59, 59, 999);
+  return { start: mon, end: sun };
+}
+
+function fmtPeriod(bounds) {
+  const o = { month: 'long', day: 'numeric', year: 'numeric' };
+  return bounds.start.toLocaleDateString('en-PH', o)
+    + ' – ' + bounds.end.toLocaleDateString('en-PH', o);
+}
+
+/* ── Parse BCG article HTML into entry objects ───────────────── */
+function parseEntries(htmlContent) {
+  const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
+  const entries = [];
+
+  doc.querySelectorAll('table tr').forEach(row => {
+    const cells = [...row.querySelectorAll('td, th')].map(c => c.textContent.trim());
+    if (cells.length < 2) return;
+
+    const dateCell    = cells[0] || '';
+    const areaCell    = cells[1] || '';
+    const purposeCell = cells[2] || '';
+
+    const lo = dateCell.toLowerCase();
+    if (!dateCell || lo.includes('date') || lo.includes('areas affected')) return;
+
+    const dateMatch = dateCell.match(/([A-Z][a-z]+ \d{1,2},?\s*\d{4})/i);
+    const parsedDate = dateMatch ? new Date(dateMatch[1]) : null;
+
+    const timeMatch = dateCell.match(/\d{1,2}:\d{2}\s*[AP]M.*?(?:\d{1,2}:\d{2}\s*[AP]M|\bNN\b)/i);
+    const timeStr = timeMatch ? timeMatch[0].trim() : '';
+
+    const dayMatch = dateCell.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/i);
+    const dayStr = dayMatch ? dayMatch[1] : '';
+
+    let dateLabel = dateMatch ? dateMatch[1] : dateCell;
+    if (dayStr) dateLabel += ' · ' + dayStr;
+
+    entries.push({
+      parsedDate,
+      dateLabel,
+      time: timeStr,
+      areas: areaCell,
+      purpose: purposeCell,
+      full: dateCell + ' ' + areaCell + ' ' + purposeCell,
+    });
+  });
+
+  if (entries.length === 0) {
+    doc.querySelectorAll('p, li').forEach(p => {
+      const t = p.textContent.trim();
+      if (t.length < 30) return;
+      const dm = t.match(/([A-Z][a-z]+ \d{1,2},?\s*\d{4})/i);
+      if (!dm) return;
+      const pd = new Date(dm[1]);
+      if (isNaN(pd)) return;
+      entries.push({
+        parsedDate: pd,
+        dateLabel: dm[1],
+        time: '',
+        areas: t,
+        purpose: '',
+        full: t,
+      });
+    });
+  }
+
+  return entries;
+}
+
+/* ── Filter entries to a given week and keyword-match them ───── */
+function filterWeek(allEntries, bounds) {
+  return allEntries
+    .filter(e => {
+      if (!e.parsedDate || isNaN(e.parsedDate)) return false;
+      return e.parsedDate >= bounds.start && e.parsedDate <= bounds.end;
+    })
+    .filter(e => matchKw(e.full).length > 0)
+    .map(e => ({ ...e, hits: matchKw(e.full) }))
+    .sort((a, b) => a.parsedDate - b.parsedDate);
+}
+
+/* ── Render one week section ─────────────────────────────────── */
+function renderWeekSection(label, bounds, entries, noAnnouncementYet) {
+  const periodStr = fmtPeriod(bounds);
+  let innerHtml = '';
+
+  if (noAnnouncementYet) {
+    innerHtml = `<div class="week-content pending">
+      <div class="status-msg">
+        No announcement posted yet for this period.
+        <div class="period">${periodStr}</div>
+      </div>
+    </div>`;
+  } else if (entries.length === 0) {
+    innerHtml = `<div class="week-content clear">
+      <div class="status-msg">
+        No scheduled power interruptions for PSHS-CAR.
+        <div class="period">${periodStr}</div>
+      </div>
+    </div>`;
+  } else {
+    const entriesHtml = entries.map(({ dateLabel, time, areas, purpose, hits }) => `
+      <div class="entry">
+        <div class="entry-date">${highlightKw(dateLabel, hits)}</div>
+        <div class="entry-body">
+          ${time    ? `<div class="entry-time">${escHtml(time)}</div>`        : ''}
+          <div class="entry-areas">${highlightKw(areas, hits)}</div>
+          ${purpose ? `<div class="entry-purpose">${escHtml(purpose)}</div>` : ''}
+        </div>
+      </div>`).join('');
+
+    innerHtml = `<div class="week-content alert">${entriesHtml}</div>`;
+  }
+
+  return `<div class="week-section">
+    <div class="week-label">${escHtml(label)} &nbsp;&middot;&nbsp; <span style="font-weight:400;text-transform:none;letter-spacing:0">${periodStr}</span></div>
+    ${innerHtml}
+  </div>`;
+}
+
+/* ── Main render ─────────────────────────────────────────────── */
+function render(posts, nextWeekHasPost) {
+  const thisWeek = weekBounds(0);
+  const nextWeek = weekBounds(1);
+
+  const allEntries = [];
+  posts.forEach(post => {
+    parseEntries(post.content?.rendered || '').forEach(e => allEntries.push(e));
+  });
+
+  const thisEntries = filterWeek(allEntries, thisWeek);
+  const nextEntries = filterWeek(allEntries, nextWeek);
+
+  document.getElementById('result-area').innerHTML =
+    renderWeekSection('This week', thisWeek, thisEntries, false) +
+    renderWeekSection('Next week', nextWeek, nextEntries, !nextWeekHasPost);
+}
+
+/* ── Check if any post covers next week ─────────────────────── */
+function postCoversNextWeek(posts) {
+  const { start, end } = weekBounds(1);
+  return posts.some(post => {
+    return parseEntries(post.content?.rendered || '')
+      .some(e => e.parsedDate && e.parsedDate >= start && e.parsedDate <= end);
+  });
+}
+
+/* ── Fetch ───────────────────────────────────────────────────── */
+async function fetchData() {
+  const btn = document.getElementById('btn-refresh');
+  const statusEl = document.getElementById('status-text');
+  btn.disabled = true;
+  statusEl.textContent = 'Checking…';
+
+  try {
+    const res = await fetch(API_URL, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const posts = await res.json();
+    if (!Array.isArray(posts)) throw new Error('Unexpected response');
+
+    const nextWeekCovered = postCoversNextWeek(posts);
+    render(posts, nextWeekCovered);
+
+    const now = new Date();
+    statusEl.textContent = 'Updated '
+      + now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+
+    document.getElementById('source-note').innerHTML =
+      'Source: <a href="https://www.beneco.com.ph" target="_blank" rel="noopener">beneco.com.ph</a>'
+      + ' via <a href="https://baguiocityguide.com" target="_blank" rel="noopener">Baguio City Guide</a>'
+      + ' · auto-refreshes every 3 hours';
+
+  } catch (err) {
+    statusEl.textContent = 'Could not load data';
+    document.getElementById('result-area').innerHTML =
+      `<div class="error-msg">Failed to fetch: ${escHtml(err.message)}. `
+      + `<a href="https://www.beneco.com.ph" target="_blank" rel="noopener">Check BENECO directly.</a></div>`;
+  } finally {
+    btn.disabled = false;
+    setTimeout(fetchData, REFRESH_MS);
+  }
+}
+
+fetchData();
+</script>
+</body>
+</html>
