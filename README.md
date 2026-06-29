@@ -20,7 +20,7 @@ BENECO (beneco.com.ph)
             └── Baguio City Guide (baguiocityguide.com)
                     └── republishes as structured HTML articles
                             └── exposes articles via WordPress REST API (public, no auth)
-                                    └── beneco_monitor.html
+                                    └── beneco-outage-monitor.html
                                             └── fetches articles every 3 hours
                                             └── parses interruption table (date, areas, purpose)
                                             └── filters to current week and next week
@@ -38,7 +38,7 @@ The widget runs entirely in the browser. There is no backend, no server, and no 
 
 ### Download and open
 
-1. Download `beneco_monitor.html` from this repository.
+1. Download `beneco-outage-monitor.html` from this repository.
 2. Open it in any modern web browser. No internet server needed — it runs as a local file.
 
 ### Embed in a webpage
@@ -47,7 +47,7 @@ To embed the widget inside an existing webpage or portal:
 
 ```html
 <iframe
-  src="beneco_monitor.html"
+  src="beneco-outage-monitor.html"
   width="100%"
   height="400"
   frameborder="0"
@@ -55,13 +55,13 @@ To embed the widget inside an existing webpage or portal:
 </iframe>
 ```
 
-If hosted on a web server, replace `beneco_monitor.html` with the full URL to the file.
+If hosted on a web server, replace `beneco-outage-monitor.html` with the full URL to the file.
 
 ---
 
 ## Modifying monitored keywords
 
-Open `beneco_monitor.html` in any text editor and find this line near the top of the `<script>` section:
+Open `beneco-outage-monitor.html` in any text editor and find this line near the top of the `<script>` section:
 
 ```js
 const KEYWORDS = ['irisan', 'purok 12', 'philippine science', 'pshs'];
